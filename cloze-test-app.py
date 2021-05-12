@@ -111,19 +111,19 @@ def generate(nlp, text, tokenizer, model):
 def main():
     st.set_page_config(page_title="Cloze Test Generation", page_icon="🦈", layout="wide")
     col1, col2, col3 = st.beta_columns(3)
-    image = Image.open("logo.jpg")
-    with col1:
-        st.image(
-            image,
-        )
-    with col2:
-        st.image(
-            image,
-        )
-    with col3:
-        st.image(
-            image,
-        )
+    # image = Image.open("logo.jpg")
+    # with col1:
+    #     st.image(
+    #         image,
+    #     )
+    # with col2:
+    #     st.image(
+    #         image,
+    #     )
+    # with col3:
+    #     st.image(
+    #         image,
+    #     )
 
     st.markdown(
         "<h1 style='text-align: center;'> Cloze Test Generation</h1>",
