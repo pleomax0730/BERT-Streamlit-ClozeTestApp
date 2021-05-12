@@ -1,18 +1,19 @@
+import string
 import streamlit as st
 import stanza
-import tensorflow as tf
+import torch
 import numpy as np
-import string
-from PIL import Image
-from transformers import BertTokenizer, TFBertForMaskedLM
+from transformers import BertTokenizer, BertForMaskedLM
 
 
+@st.cache
 def download_bert_tokenizer():
     return BertTokenizer.from_pretrained("bert-base-cased")
 
 
+@st.cache
 def download_bert_model():
-    return TFBertForMaskedLM.from_pretrained("bert-base-cased")
+    return BertForMaskedLM.from_pretrained("bert-base-cased")
 
 
 def unique_tags_collect(mask_words_list):
@@ -35,7 +36,7 @@ def format_question2(real_question, four_options, ans, ABCD):
     return final_options, answer
 
 
-def cloze_test2(text, nlp, pos_tags, tokenizer, model, ABCD):
+def cloze_test(text, nlp, pos_tags, tokenizer, model, ABCD):
     doc = nlp(text)
     mask_words = [
         (word.text, word.upos)
@@ -59,10 +60,10 @@ def cloze_test2(text, nlp, pos_tags, tokenizer, model, ABCD):
     input_ids = tokenizer.encode(masked_question, add_special_tokens=True)
     masked_index = input_ids.index(103)  # '[MASK]': 103
 
-    outputs = model(tf.constant(input_ids)[None, :])  # Batch size 1
+    outputs = model(torch.tensor(input_ids)[None, :])  # Batch size 1
     prediction_scores = outputs[0]
 
-    logits, indices = tf.math.top_k(prediction_scores[0, masked_index], k=100)
+    _, indices = torch.topk(prediction_scores[0, masked_index], k=100)
     options = tokenizer.convert_ids_to_tokens(indices)[-50:]
     options = [
         option
@@ -89,7 +90,7 @@ def generate(nlp, text, tokenizer, model):
     options = []
 
     for sentence in doc.sentences:
-        question, answer = cloze_test2(
+        question, answer = cloze_test(
             sentence.text, nlp, pos_tags, tokenizer, model, ABCD
         )
         questions.append(question)
@@ -110,26 +111,12 @@ def generate(nlp, text, tokenizer, model):
 
 def main():
     st.set_page_config(page_title="Cloze Test Generation", page_icon="🦈", layout="wide")
-    col1, col2, col3 = st.beta_columns(3)
-    # image = Image.open("logo.jpg")
-    # with col1:
-    #     st.image(
-    #         image,
-    #     )
-    # with col2:
-    #     st.image(
-    #         image,
-    #     )
-    # with col3:
-    #     st.image(
-    #         image,
-    #     )
 
     st.markdown(
         "<h1 style='text-align: center;'> Cloze Test Generation</h1>",
         unsafe_allow_html=True,
     )
-    # st.title('Cloze Test Generation')
+
     st.header("Paste, Generate and Test!")
 
     user_name = st.text_input("Enter your name: ")
@@ -138,7 +125,7 @@ def main():
             f"""Hi, {user_name}. This application is based on the following libraries.
             \n - [Transformers](https://github.com/huggingface/transformers)
             \n - [Stanza](https://github.com/stanfordnlp/stanza)
-            \n - [Tensorflow](https://www.tensorflow.org/)
+            \n - [PyTorch](https://pytorch.org/)
             \n - [NumPy](https://numpy.org/)
             """
         )
@@ -164,16 +151,14 @@ def main():
 
         st.success("Done")
 
-        col1, col2 = st.beta_columns(2)
-        with col1:
+        with st.form(key="text_form"):
             st.write("""### Paste your article below. We'll do the rest for you!""")
             text = st.text_area(
                 "Here is a default text. Change it to whatever you want and press Generate!",
                 """In the 1980s the number of giant pandas in China hovered around 1,100. Now, after decades of focused conservation, giant pandas have been crossed off the endangered list. Habitat preservation, anti-poaching efforts, and advances in captive-breeding programs can offer a lifeline to the most endangered members of the biosphere.""",
             )
 
-        with col2:
-            generate_btn = st.button("Generate")
+            generate_btn = st.form_submit_button(label="Generate")
             if generate_btn:
                 questions, answers, options, paragraph = generate(
                     nlp, text, tokenizer, model
